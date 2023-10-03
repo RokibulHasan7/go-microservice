@@ -12,6 +12,7 @@ type RequestPayload struct {
 	Action string      `json:"action"`
 	Auth   AuthPayload `json:"auth,omitempty"`
 	Log    LogPayload  `json:"log,omitempty"`
+	Mail   MailPayload `json:"mail,omitempty"`
 }
 
 type AuthPayload struct {
@@ -22,6 +23,13 @@ type AuthPayload struct {
 type LogPayload struct {
 	Name string `json:"name"`
 	Data string `json:"data"`
+}
+
+type MailPayload struct {
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Subject string `json:"subject"`
+	Message string `json:"message"`
 }
 
 func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +55,8 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 		app.authenticate(w, reqPayload.Auth)
 	case "log":
 		app.logItem(w, reqPayload.Log)
+	case "mail":
+		app.sendMail(w, reqPayload.Mail)
 	default:
 		_ = app.errorJSON(w, errors.New("unknown action"))
 	}
@@ -136,6 +146,44 @@ func (app *Config) logItem(w http.ResponseWriter, entry LogPayload) {
 	payload := jsonResponse{
 		Error:   false,
 		Message: "Logged",
+	}
+
+	_ = app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) sendMail(w http.ResponseWriter, msg MailPayload) {
+	jsonData, _ := json.MarshalIndent(msg, "", "\t")
+
+	// call the mail service
+	mailServiceURL := "http://mail-service/send"
+
+	// post to mail service
+	req, err := http.NewRequest(http.MethodPost, mailServiceURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		_ = app.errorJSON(w, err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		_ = app.errorJSON(w, err)
+		return
+	}
+
+	defer resp.Body.Close()
+
+	// make sure we get back the right status code
+	if resp.StatusCode != http.StatusAccepted {
+		_ = app.errorJSON(w, errors.New("error calling mail service"))
+		return
+	}
+
+	// send back json
+	payload := jsonResponse{
+		Error:   false,
+		Message: "Message sent to " + msg.To,
 	}
 
 	_ = app.writeJSON(w, http.StatusAccepted, payload)
