@@ -12,7 +12,7 @@ up:
 	@echo "Docker images started!"
 
 # stops docker compose (if running), builds all projects and starts docker compose
-up-build: build-broker build-auth build-logger build-mail
+up-build: build-broker build-auth build-logger build-mail build-listener
 	@echo "Stopping docker images (if running...)"
 	docker compose down
 	@echo "Building and starting docker images..."
@@ -52,7 +52,7 @@ build-mail:
 # builds the listener binary as a linux executable
 build-listener:
 	@echo "Building listener binary..."
-	cd ./listener-service && env GOOS=linux CGO_ENABLED=0 go build -o ${LISTENER_BINARY} ./cmd/api
+	cd ./listener-service && env GOOS=linux CGO_ENABLED=0 go build -o ${LISTENER_BINARY}
 	@echo "Done!"
 
 # builds the front end binary
